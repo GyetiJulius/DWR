@@ -16,3 +16,11 @@ echo ""
 
 echo "=== Starting Phase 2 training ==="
 python train.py
+echo ""
+
+echo "=== Running Phase 3 streaming inference tests ==="
+python test_phase3.py
+echo ""
+
+echo "=== Running Phase 3 streaming inference ==="
+python inference.py --max-tokens 50 --cache-capacity 16
