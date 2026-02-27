@@ -1,4 +1,3 @@
-"""
 """Dataset module: WikiText-103 loading, tokenization, and batching.
 
 Uses the HuggingFace `datasets` library to download WikiText-103-raw-v1
@@ -85,7 +84,7 @@ def build_dataloaders(
     num_workers: int = 2,
 ) -> Tuple[DataLoader, DataLoader, tiktoken.Encoding]:
     """
-    Build train and validation DataLoaders from WikiText-2.
+    Build train and validation DataLoaders from WikiText-103.
 
     Downloads the dataset on first run and caches tokenized tensors
     to disk for subsequent runs.
