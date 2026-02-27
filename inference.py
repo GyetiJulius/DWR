@@ -31,7 +31,7 @@ def inference(
     max_new_tokens: int = 100,
     temperature: float = 0.8,
     top_p: float = 0.9,
-    cache_capacity: int = 32,
+    cache_capacity: int = 96,
     expert_store_dir: str = "checkpoints/expert_store",
 ) -> None:
     """
@@ -147,8 +147,8 @@ def main() -> None:
                         help="Sampling temperature")
     parser.add_argument("--top-p", type=float, default=0.9,
                         help="Nucleus sampling threshold")
-    parser.add_argument("--cache-capacity", type=int, default=32,
-                        help="Max experts in GPU cache")
+    parser.add_argument("--cache-capacity", type=int, default=96,
+                        help="Max experts in GPU cache (96 = all experts)")
     parser.add_argument("--expert-store", type=str, default="checkpoints/expert_store",
                         help="Path to expert store directory")
     args = parser.parse_args()

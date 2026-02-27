@@ -23,4 +23,4 @@ python test_phase3.py
 echo ""
 
 echo "=== Running Phase 3 streaming inference ==="
-python inference.py --max-tokens 50 --cache-capacity 16
+python inference.py --max-tokens 50 --cache-capacity 96

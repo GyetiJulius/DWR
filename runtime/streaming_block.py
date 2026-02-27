@@ -110,17 +110,13 @@ class StreamingDWRBlock(nn.Module):
         # we only touch the ones the router selected.
         unique_expert_ids: Set[int] = set(topk_indices_flat.unique().tolist())
 
-        # --- Prefetch needed experts into GPU cache ---
-        prefetch_keys = [
-            (self.layer_idx, eid) for eid in unique_expert_ids
-        ]
-        self.cache_manager.prefetch(prefetch_keys)
-
         # --- Expert dispatch (only selected experts) ---
+        # get_expert() handles cache miss/hit transparently — no separate
+        # prefetch needed (sync loading, prefetch just doubled cache ops).
         output = torch.zeros_like(x_flat)  # (T, D)
 
         for expert_id in unique_expert_ids:
-            # Retrieve expert from cache (guaranteed hit after prefetch)
+            # Retrieve expert from cache (loads from disk on miss)
             expert = self.cache_manager.get_expert(self.layer_idx, expert_id)
 
             # Find tokens assigned to this expert
