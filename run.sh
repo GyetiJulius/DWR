@@ -14,7 +14,11 @@ echo "=== Running Phase 1 forward-pass tests ==="
 python test_forward.py
 echo ""
 
-echo "=== Starting Phase 2 training ==="
+echo "=== Clearing old data cache (dataset changed) ==="
+rm -rf data_cache/
+echo ""
+
+echo "=== Starting Phase 2 training (WikiText-103) ==="
 python train.py
 echo ""
 

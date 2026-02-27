@@ -1,7 +1,7 @@
 """
-Dataset module: WikiText-2 loading, tokenization, and batching.
+"""Dataset module: WikiText-103 loading, tokenization, and batching.
 
-Uses the HuggingFace `datasets` library to download WikiText-2-raw-v1
+Uses the HuggingFace `datasets` library to download WikiText-103-raw-v1
 and `tiktoken` for GPT-2 BPE tokenization.
 
 The dataset is packed into contiguous token sequences of length max_seq_len
@@ -115,8 +115,8 @@ def build_dataloaders(
         train_tokens = torch.load(train_cache, weights_only=True)
         val_tokens = torch.load(val_cache, weights_only=True)
     else:
-        print("[Data] Downloading and tokenizing WikiText-2...")
-        dataset = load_dataset("wikitext", "wikitext-2-raw-v1", trust_remote_code=True)
+        print("[Data] Downloading and tokenizing WikiText-103...")
+        dataset = load_dataset("wikitext", "wikitext-103-raw-v1", trust_remote_code=True)
 
         # Concatenate all text in each split into one string.
         # WikiText stores one paragraph per row.

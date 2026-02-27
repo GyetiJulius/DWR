@@ -42,14 +42,15 @@ class DWRConfig:
     balance_loss_coeff: float = 0.01
 
     # --- Training Hyperparameters (Phase 2) ---
+    # Tuned for WikiText-103 (~103M tokens) on single T4 GPU.
     learning_rate: float = 3e-4
     weight_decay: float = 0.1
-    max_epochs: int = 10
-    batch_size: int = 16
+    max_epochs: int = 3            # 103M tokens × 3 = ~309M token budget
+    batch_size: int = 32           # Larger batch for better gradient estimates
     grad_clip: float = 1.0
-    warmup_steps: int = 200
-    eval_interval: int = 200       # Steps between validation runs
-    log_interval: int = 20         # Steps between loss logging
+    warmup_steps: int = 500        # ~2.5% of epoch (longer warmup for larger data)
+    eval_interval: int = 500       # Steps between validation runs
+    log_interval: int = 50         # Steps between loss logging
     checkpoint_interval: int = 1   # Epochs between checkpoints
 
     # --- Paths ---
