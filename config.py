@@ -1,8 +1,8 @@
 """
-DWR-Transformer Phase 1 Configuration.
+DWR-Transformer Configuration.
 
-All architectural parameters for the static MoE prototype.
-Values sourced from design.md Section 11 (Prototype Configuration v1).
+Phase 1: Model architecture parameters (design.md Section 11).
+Phase 2: Training hyperparameters added.
 
 Active parameter count (~50M per token) vs total parameter count (~241M)
 is expected for MoE: only top_k / num_experts fraction of expert params
@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 @dataclass
 class DWRConfig:
-    """Phase 1 prototype configuration."""
+    """Model architecture + training configuration."""
 
     # --- Model Dimensions ---
     d_model: int = 512
@@ -29,7 +29,9 @@ class DWRConfig:
     top_k: int = 2
 
     # --- Vocabulary and Sequence ---
-    vocab_size: int = 32000
+    # GPT-2 BPE has 50257 tokens; padded to 50304 (next multiple of 64)
+    # for GPU kernel alignment efficiency.
+    vocab_size: int = 50304
     max_seq_len: int = 512
 
     # --- Regularization ---
@@ -38,6 +40,21 @@ class DWRConfig:
     # --- Load Balancing (design.md Section 7.2) ---
     # Coefficient λ for auxiliary balance loss: L_total = L_task + λ * L_balance
     balance_loss_coeff: float = 0.01
+
+    # --- Training Hyperparameters (Phase 2) ---
+    learning_rate: float = 3e-4
+    weight_decay: float = 0.1
+    max_epochs: int = 10
+    batch_size: int = 16
+    grad_clip: float = 1.0
+    warmup_steps: int = 200
+    eval_interval: int = 200       # Steps between validation runs
+    log_interval: int = 20         # Steps between loss logging
+    checkpoint_interval: int = 1   # Epochs between checkpoints
+
+    # --- Paths ---
+    checkpoint_dir: str = "checkpoints"
+    data_cache_dir: str = "data_cache"
 
     def __post_init__(self) -> None:
         assert self.d_model % self.num_heads == 0, (

@@ -17,7 +17,6 @@ Inference architecture (design.md Section 9):
 
 import torch
 from config import DWRConfig
-from train import build_model
 
 
 def inference() -> None:

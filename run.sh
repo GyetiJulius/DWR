@@ -12,3 +12,7 @@ echo ""
 
 echo "=== Running Phase 1 forward-pass tests ==="
 python test_forward.py
+echo ""
+
+echo "=== Starting Phase 2 training ==="
+python train.py
