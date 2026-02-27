@@ -167,13 +167,13 @@ def test_cache_manager() -> None:
         print(f"  Filled to capacity: {cache.cache_contents()}, evictions=0")
 
         # 4. Trigger eviction
-        cache.get_expert(1, 0)  # miss → should evict LRU which is (0,0)
-        # After step 2, (0,0) was accessed and moved to end.
-        # Access order: (0,0), (0,1), (0,2), (0,3), then (0,0) hit moved to end.
-        # So after all: (0,1), (0,2), (0,3), (0,0)
-        # Then get(1,0) → evict (0,1) (LRU = front)
+        cache.get_expert(1, 0)  # miss → should evict LRU
+        # After step 2, (0,0) was moved to end, but steps 3-5 appended
+        # (0,1), (0,2), (0,3) AFTER (0,0), so final LRU order is:
+        #   front (LRU) → (0,0), (0,1), (0,2), (0,3) ← back (MRU)
+        # Eviction removes (0,0) from front.
         assert cache.evictions == 1
-        assert not cache.is_cached(0, 1), "Expert (0,1) should have been evicted"
+        assert not cache.is_cached(0, 0), "Expert (0,0) should have been evicted (LRU)"
         assert cache.is_cached(1, 0), "Expert (1,0) should be cached"
         print(f"  After eviction: {cache.cache_contents()}, evictions=1")
 
