@@ -1,0 +1,20 @@
+WikiText-103 Validation Perplexity Benchmark
+====================================================================================================
+Model                   Total       Active    Val PPL      Tok/s     GPU MB  Trained On
+----------------------------------------------------------------------------------------------------
+pythia-410m       405,334,016  405,334,016       23.2     148297       2345  The Pile
+DWR (ours)        259,712,096   83,336,288       28.9      55050       5552  WikiText-103
+gpt2              124,439,808  124,439,808       37.3     250157       1327  WebText
+pythia-160m       162,322,944  162,322,944       63.7     304852       1400  The Pile
+pythia-70m         70,426,624   70,426,624      385.9     364864       1031  The Pile
+----------------------------------------------------------------------------------------------------
+
+pythia-410m: Zero-shot eval (trained on The Pile)
+
+DWR (ours): Trained 3 epochs. top-2 of 16 experts/layer.
+
+gpt2: Zero-shot eval (trained on WebText)
+
+pythia-160m: Zero-shot eval (trained on The Pile)
+
+pythia-70m: Zero-shot eval (trained on The Pile)
