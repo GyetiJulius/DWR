@@ -208,9 +208,14 @@ def evaluate_dwr(
 ) -> Optional[ModelResult]:
     """Evaluate our trained DWR-Transformer."""
 
-    ckpt_path = os.path.join(config.checkpoint_dir, "checkpoint_best.pt")
-    if not os.path.exists(ckpt_path):
-        print(f"  [SKIP] DWR checkpoint not found: {ckpt_path}")
+    # Try checkpoint_latest.pt first, then checkpoint_best.pt, then epoch checkpoints
+    for ckpt_name in ["checkpoint_latest.pt", "checkpoint_best.pt",
+                      "checkpoint_epoch3.pt", "checkpoint_epoch2.pt", "checkpoint_epoch1.pt"]:
+        ckpt_path = os.path.join(config.checkpoint_dir, ckpt_name)
+        if os.path.exists(ckpt_path):
+            break
+    else:
+        print(f"  [SKIP] No DWR checkpoint found in {config.checkpoint_dir}/")
         return None
 
     print(f"\n{'='*60}")
