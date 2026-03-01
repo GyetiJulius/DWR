@@ -248,7 +248,8 @@ def calibrate(
         if batch_count >= num_batches:
             break
 
-        input_ids = batch.to(device)
+        input_ids, _ = batch
+        input_ids = input_ids.to(device)
         layer_experts = cal_model.calibration_forward(input_ids)
 
         # Record co-occurrences for transition matrix
