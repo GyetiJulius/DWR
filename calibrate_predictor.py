@@ -225,7 +225,7 @@ def calibrate(
 
     # Load validation data
     print("Loading validation data...")
-    _, val_loader = build_dataloaders(config)
+    _, val_loader, _ = build_dataloaders(config.max_seq_len, batch_size=8)
 
     # Initialize transition matrix predictor
     tm_predictor = TransitionMatrixPredictor(
