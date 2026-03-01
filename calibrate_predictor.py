@@ -135,9 +135,9 @@ class CalibrationModel(torch.nn.Module):
     @torch.no_grad()
     def calibration_forward(
         self, input_ids: torch.Tensor
-    ) -> List[Set[int]]:
+    ) -> List[torch.Tensor]:
         """
-        Forward pass that returns routing decisions per layer.
+        Forward pass that returns per-token routing decisions per layer.
 
         Since we don't need expert outputs for calibration, we skip
         the MoE dispatch entirely — just run attention + router.
@@ -152,7 +152,7 @@ class CalibrationModel(torch.nn.Module):
             input_ids: (batch, seq_len) token indices.
 
         Returns:
-            List of Sets: [experts_layer_0, experts_layer_1, ...]
+            List of tensors: each (B*S, top_k) — per-token expert indices per layer
         """
         B, S = input_ids.shape
         positions = torch.arange(S, device=self.device).unsqueeze(0)
@@ -165,7 +165,7 @@ class CalibrationModel(torch.nn.Module):
             float("-inf"),
         )
 
-        layer_experts: List[Set[int]] = []
+        layer_routing: List[torch.Tensor] = []
 
         for l in range(self.config.num_layers):
             # Attention
@@ -174,15 +174,15 @@ class CalibrationModel(torch.nn.Module):
 
             # Router (just get decisions, skip MoE dispatch)
             topk_indices, _, _ = self.routers[l](x)
-            # topk_indices: (B, S, top_k)
+            # topk_indices: (B, S, top_k) — per-token expert selections
 
-            unique_experts = set(topk_indices.unique().tolist())
-            layer_experts.append(unique_experts)
+            # Flatten to (B*S, top_k) for per-token analysis
+            layer_routing.append(topk_indices.reshape(-1, topk_indices.shape[-1]))
 
             # Skip FFN (approximate) — norm still applied for next layer
             x = self.ffn_norms[l](x)
 
-        return layer_experts
+        return layer_routing
 
 
 def calibrate(
@@ -250,27 +250,43 @@ def calibrate(
 
         input_ids, _ = batch
         input_ids = input_ids.to(device)
-        layer_experts = cal_model.calibration_forward(input_ids)
+        layer_routing = cal_model.calibration_forward(input_ids)
+        # layer_routing: list of (num_tokens, top_k) tensors, one per layer
 
-        # Record co-occurrences for transition matrix
-        for l in range(len(layer_experts) - 1):
-            tm_predictor.record(
+        num_tokens = layer_routing[0].shape[0]
+        top_k = layer_routing[0].shape[1]
+
+        # Record per-token co-occurrences for transition matrix
+        for l in range(len(layer_routing) - 1):
+            indices_L = layer_routing[l]      # (T, K)
+            indices_L1 = layer_routing[l + 1]  # (T, K)
+            # For each token, record co-occurrence between its L and L+1 experts
+            tm_predictor.record_batch(
                 layer_idx=l,
-                experts_this_layer=layer_experts[l],
-                experts_next_layer=layer_experts[l + 1],
+                experts_this=indices_L,
+                experts_next=indices_L1,
             )
 
-        # Track frequencies and persistence
-        for l, experts in enumerate(layer_experts):
-            for e in experts:
+        # Track frequencies and persistence (per-token level)
+        for l, indices in enumerate(layer_routing):
+            # indices: (T, K)
+            flat = indices.reshape(-1).tolist()
+            for e in flat:
                 global_freq[e] += 1
                 layer_expert_counts[l][e] += 1
 
-        # Cross-layer persistence
-        for l in range(len(layer_experts) - 1):
-            overlap = layer_experts[l] & layer_experts[l + 1]
-            persistence_count += len(overlap)
-            persistence_total += len(layer_experts[l])
+        # Cross-layer persistence: how often a token picks the same expert in L and L+1
+        for l in range(len(layer_routing) - 1):
+            # Vectorized: check if any expert at L matches any expert at L+1 per token
+            idx_L = layer_routing[l]     # (T, K)
+            idx_L1 = layer_routing[l + 1] # (T, K)
+            # Expand for broadcast: (T, K, 1) vs (T, 1, K) → (T, K, K) matches
+            matches = (idx_L.unsqueeze(2) == idx_L1.unsqueeze(1))  # (T, K, K)
+            # Count unique overlapping experts per token
+            # A token has persistence if any (k1, k2) matches
+            per_token_overlap = matches.any(dim=2).sum(dim=1)  # (T,) — count of L experts persisting
+            persistence_count += per_token_overlap.sum().item()
+            persistence_total += num_tokens * top_k
 
         batch_count += 1
         if batch_count % 10 == 0:

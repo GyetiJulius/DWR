@@ -132,6 +132,46 @@ class TransitionMatrixPredictor(ExpertPredictor):
             for j in experts_next_layer:
                 T[i, j] += 1.0
 
+    def record_batch(
+        self,
+        layer_idx: int,
+        experts_this: torch.Tensor,
+        experts_next: torch.Tensor,
+    ) -> None:
+        """
+        Record per-token co-occurrences from batched routing indices.
+
+        This is the efficient vectorized version of record() used during
+        calibration. For each token t, for each expert i selected at
+        layer_idx and each expert j at layer_idx+1, increment T[i][j].
+
+        This produces SPARSE, MEANINGFUL transition matrices because each
+        token only selects top_k (e.g. 2) experts — not all 16.
+
+        Args:
+            layer_idx:    Current layer index.
+            experts_this: (num_tokens, top_k) expert indices at layer_idx.
+            experts_next: (num_tokens, top_k) expert indices at layer_idx + 1.
+        """
+        if layer_idx >= self.num_layers - 1:
+            return
+
+        T = self.transitions[layer_idx]
+        num_tokens, top_k = experts_this.shape
+
+        # Vectorized: for each token, all (i, j) pairs between its L and L+1 experts
+        # Move to CPU for counting (transition matrices are CPU tensors)
+        this_cpu = experts_this.cpu()
+        next_cpu = experts_next.cpu()
+        for k1 in range(top_k):
+            for k2 in range(top_k):
+                i_indices = this_cpu[:, k1].long()  # (T,)
+                j_indices = next_cpu[:, k2].long()   # (T,)
+                # Vectorized scatter-add using flat indexing
+                flat_idx = i_indices * self.num_experts + j_indices
+                counts = torch.bincount(flat_idx, minlength=self.num_experts ** 2)
+                T += counts.float().reshape(self.num_experts, self.num_experts)
+
     def finalize(self) -> None:
         """
         Normalize co-occurrence counts into transition probabilities.
