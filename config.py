@@ -46,7 +46,8 @@ class DWRConfig:
     learning_rate: float = 3e-4
     weight_decay: float = 0.1
     max_epochs: int = 3            # 103M tokens × 3 = ~309M token budget
-    batch_size: int = 32           # Larger batch for better gradient estimates
+    batch_size: int = 8            # Micro-batch (fits T4 VRAM)
+    grad_accum_steps: int = 4      # Effective batch = 8 × 4 = 32
     grad_clip: float = 1.0
     warmup_steps: int = 500        # ~2.5% of epoch (longer warmup for larger data)
     eval_interval: int = 500       # Steps between validation runs

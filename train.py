@@ -174,10 +174,14 @@ def train() -> None:
         data_cache_dir=config.data_cache_dir,
     )
 
-    steps_per_epoch = len(train_loader)
+    micro_steps_per_epoch = len(train_loader)
+    steps_per_epoch = micro_steps_per_epoch // config.grad_accum_steps
     max_steps = config.max_epochs * steps_per_epoch
-    print(f"[Train] Steps/epoch: {steps_per_epoch}  "
-          f"Total steps: {max_steps}  "
+    print(f"[Train] Micro-batches/epoch: {micro_steps_per_epoch}  "
+          f"Optimizer steps/epoch: {steps_per_epoch}  "
+          f"Total optimizer steps: {max_steps}  "
+          f"Grad accum: {config.grad_accum_steps}  "
+          f"Effective batch: {config.batch_size * config.grad_accum_steps}  "
           f"Warmup: {config.warmup_steps}")
 
     # --- Model ---
@@ -243,10 +247,7 @@ def train() -> None:
             x = x.to(device)  # (B, S)
             y = y.to(device)  # (B, S)
 
-            # Update learning rate
-            lr = get_lr(global_step, config.warmup_steps, max_steps, config.learning_rate)
-            for param_group in optimizer.param_groups:
-                param_group["lr"] = lr
+            is_accum_step = (batch_idx + 1) % config.grad_accum_steps != 0
 
             # Forward pass with mixed precision
             with torch.amp.autocast(device.type, dtype=amp_dtype, enabled=use_amp):
@@ -257,33 +258,43 @@ def train() -> None:
                     y.view(-1),                         # (B*S,)
                 )
 
-                total_loss = task_loss + config.balance_loss_coeff * aux_loss
+                # Scale loss by accum steps so gradient magnitude is correct
+                total_loss = (task_loss + config.balance_loss_coeff * aux_loss) / config.grad_accum_steps
 
-            # Backward pass
-            optimizer.zero_grad(set_to_none=True)
+            # Backward (accumulate gradients)
             scaler.scale(total_loss).backward()
-            scaler.unscale_(optimizer)
-            torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_clip)
-            scaler.step(optimizer)
-            scaler.update()
 
-            # Accumulate stats
+            # Accumulate stats (use unscaled task_loss for logging)
             batch_tokens = y.numel()
             epoch_loss += task_loss.item() * batch_tokens
             epoch_aux += aux_loss.item()
             epoch_tokens += batch_tokens
-            global_step += 1
+
+            if not is_accum_step or (batch_idx + 1) == len(train_loader):
+                # Optimizer step after grad_accum_steps micro-batches
+                # Update learning rate
+                lr = get_lr(global_step, config.warmup_steps, max_steps, config.learning_rate)
+                for param_group in optimizer.param_groups:
+                    param_group["lr"] = lr
+
+                scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_clip)
+                scaler.step(optimizer)
+                scaler.update()
+                optimizer.zero_grad(set_to_none=True)
+
+                global_step += 1
 
             # Progress bar update
             pbar.set_postfix({
                 "loss": f"{task_loss.item():.3f}",
                 "ppl": f"{math.exp(min(task_loss.item(), 20.0)):.1f}",
                 "aux": f"{aux_loss.item():.2f}",
-                "lr": f"{lr:.2e}",
+                "lr": f"{lr:.2e}" if not is_accum_step else "accum",
             })
 
-            # Periodic logging
-            if global_step % config.log_interval == 0:
+            # Periodic logging (only on optimizer steps)
+            if not is_accum_step and global_step > 0 and global_step % config.log_interval == 0:
                 avg_loss = epoch_loss / epoch_tokens
                 tqdm.write(
                     f"  Step {global_step:>6d} | "
@@ -293,8 +304,8 @@ def train() -> None:
                     f"lr {lr:.2e}"
                 )
 
-            # Periodic validation
-            if global_step % config.eval_interval == 0:
+            # Periodic validation (only on optimizer steps)
+            if not is_accum_step and global_step > 0 and global_step % config.eval_interval == 0:
                 val_metrics = evaluate(model, val_loader, device, config)
                 tqdm.write(
                     f"\n  [Val @ step {global_step}] "
