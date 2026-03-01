@@ -255,7 +255,7 @@ def main():
         description="Benchmark reactive vs predictive expert prefetching"
     )
     parser.add_argument(
-        "--expert_dir", type=str, default="expert_store",
+        "--expert_dir", type=str, default="checkpoints/expert_store",
         help="Path to exported expert store directory",
     )
     parser.add_argument(

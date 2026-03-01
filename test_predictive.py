@@ -247,7 +247,7 @@ class TestAsyncPrefetcherUnit:
 def expert_store_dir():
     """Check if expert store exists for integration tests."""
     store_dir = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "expert_store"
+        os.path.dirname(os.path.abspath(__file__)), "checkpoints", "expert_store"
     )
     if not os.path.exists(store_dir):
         pytest.skip("Expert store not found — run training + export first")
@@ -458,7 +458,7 @@ if __name__ == "__main__":
 
     # Integration tests (need expert store)
     store_dir = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "expert_store"
+        os.path.dirname(os.path.abspath(__file__)), "checkpoints", "expert_store"
     )
     if os.path.exists(store_dir):
         print("\nRunning integration tests with expert store...")
