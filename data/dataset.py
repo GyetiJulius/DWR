@@ -115,7 +115,7 @@ def build_dataloaders(
         val_tokens = torch.load(val_cache, weights_only=True)
     else:
         print("[Data] Downloading and tokenizing WikiText-103...")
-        dataset = load_dataset("wikitext", "wikitext-103-raw-v1", trust_remote_code=True)
+        dataset = load_dataset("wikitext", "wikitext-103-raw-v1")
 
         # Concatenate all text in each split into one string.
         # WikiText stores one paragraph per row.
